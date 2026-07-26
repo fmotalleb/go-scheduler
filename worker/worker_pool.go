@@ -32,9 +32,10 @@ func NewWorkerPool[T any](ctx context.Context, handler Handler[T], workers, queu
 	ctx, cancel := context.WithCancel(ctx) //nolint:gosec // cancel is stored and called during shutdown
 
 	p := &WorkerPool[T]{
-		ctx:    ctx,
-		cancel: cancel,
-		jobs:   make(chan T, queueSize),
+		ctx:     ctx,
+		cancel:  cancel,
+		handler: handler,
+		jobs:    make(chan T, queueSize),
 	}
 
 	p.wg.Add(workers)
@@ -65,6 +66,14 @@ func (p *WorkerPool[T]) worker() {
 // Returns nil on success. If the pool's context has been cancelled
 // (e.g. during shutdown), Submit returns context.Canceled.
 func (p *WorkerPool[T]) Submit(job T) error {
+	// Check cancellation before attempting to send so that a closed pool
+	// always rejects new submissions, even when the job channel has room.
+	select {
+	case <-p.ctx.Done():
+		return context.Canceled
+	default:
+	}
+
 	select {
 	case <-p.ctx.Done():
 		return context.Canceled

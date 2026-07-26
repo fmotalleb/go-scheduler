@@ -28,7 +28,7 @@ func defaultTickerCycle[T any](s *Scheduler[T]) {
 }
 
 func defaultStorage[T any](s *Scheduler[T]) {
-	s.storage = storage.NewMemoryStorage[T](0)
+	s.storage = storage.NewBTreeStorage[T]()
 }
 
 func defaultWorker[T func(context.Context)](ctx context.Context) Option[T] {
