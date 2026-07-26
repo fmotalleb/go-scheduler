@@ -94,9 +94,7 @@ linters:
           allow:
             - $gostd
             - github.com/fmotalleb/go-scheduler
-            - github.com/fmotalleb/go-scheduler/storage
-            - github.com/fmotalleb/go-scheduler/worker
-            - github.com/google/btree
+            - github.com/fmotalleb/go-scheduler/*
 
   exclusions:
     generated: lax

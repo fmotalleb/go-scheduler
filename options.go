@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/fmotalleb/go-scheduler/storage"
+	"github.com/fmotalleb/go-scheduler/ticker"
 	"github.com/fmotalleb/go-scheduler/worker"
 )
 
@@ -24,7 +25,7 @@ const defaultTickCycle = time.Second
 type Option[T any] func(*Scheduler[T])
 
 func defaultTickerCycle[T any](s *Scheduler[T]) {
-	s.ticker = time.NewTicker(defaultTickCycle)
+	s.ticker = ticker.NewTimeTicker(time.Second)
 }
 
 func defaultStorage[T any](s *Scheduler[T]) {
@@ -47,7 +48,17 @@ func defaultWorker[T func(context.Context)](ctx context.Context) Option[T] {
 // By default the ticker fires every 1 second.
 func WithTickerCycle[T any](d time.Duration) Option[T] {
 	return func(s *Scheduler[T]) {
-		s.ticker = time.NewTicker(d)
+		s.ticker = ticker.NewTimeTicker(d)
+	}
+}
+
+// WithTicker sets a custom [Ticker] implementation for this scheduler
+// for time cycles its preferred to use the default WithTickerCycle unless you have a specific need
+// for example:
+// - you may want to trigger the cycle in for example day time more frequently and reduce the frequency in night time.
+func WithTicker[T any](t Ticker) Option[T] {
+	return func(s *Scheduler[T]) {
+		s.ticker = t
 	}
 }
 

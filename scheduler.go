@@ -24,7 +24,7 @@ type Callback = func(context.Context)
 // goroutine immediately. Use context cancellation to shut it down.
 type Scheduler[T any] struct {
 	storage Storage[T]
-	ticker  *time.Ticker
+	ticker  Ticker
 	worker  Worker[T]
 	logFn   LogFn
 }
@@ -102,7 +102,7 @@ func (s *Scheduler[T]) start(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			return
-		case tick := <-s.ticker.C:
+		case tick := <-s.ticker.C():
 			s.runCycle(tick)
 		}
 	}
@@ -145,7 +145,7 @@ func (s *Scheduler[T]) Remove(id int) (T, error) {
 // the storage backend and the worker. After Close returns the scheduler
 // can no longer be used.
 func (s *Scheduler[T]) Close() {
-	s.ticker.Stop()
+	s.ticker.Close()
 	s.storage.Close()
 	s.worker.Close()
 }

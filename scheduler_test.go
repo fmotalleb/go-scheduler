@@ -8,8 +8,12 @@ import (
 	"time"
 
 	"github.com/fmotalleb/go-scheduler/storage"
+	"github.com/fmotalleb/go-scheduler/ticker"
 	"github.com/fmotalleb/go-scheduler/worker"
 )
+
+// Compile-time check: *ticker.TimeTicker satisfies the Ticker interface.
+var _ Ticker = (*ticker.TimeTicker)(nil)
 
 // ---------------------------------------------------------------------------
 // Helper types
@@ -200,7 +204,7 @@ func TestRunCycle_popsAndSubmits(t *testing.T) {
 	mw := &mockWorker[int]{}
 
 	s := New(ctx, mw, WithStorage[int](ms))
-	s.ticker.Stop() // prevent automatic ticks
+	s.ticker.Close() // prevent automatic ticks
 
 	// Manually trigger a cycle
 	s.runCycle(now)
@@ -232,7 +236,7 @@ func TestRunCycle_storageErrorIsLogged(t *testing.T) {
 			logged.Store(true)
 		}),
 	)
-	s.ticker.Stop()
+	s.ticker.Close()
 
 	s.runCycle(time.Now())
 
@@ -273,7 +277,7 @@ func TestRunCycle_workerErrorIsLogged(t *testing.T) {
 			mu.Unlock()
 		}),
 	)
-	s.ticker.Stop()
+	s.ticker.Close()
 
 	s.runCycle(time.Now())
 
@@ -309,7 +313,7 @@ func TestRunCycle_panicRecovery(t *testing.T) {
 			mu.Unlock()
 		}),
 	)
-	s.ticker.Stop()
+	s.ticker.Close()
 
 	// Should not panic
 	s.runCycle(time.Now())
@@ -343,7 +347,7 @@ func TestRunCycle_panicWithNonError(t *testing.T) {
 			mu.Unlock()
 		}),
 	)
-	s.ticker.Stop()
+	s.ticker.Close()
 
 	s.runCycle(time.Now())
 
@@ -382,7 +386,7 @@ func TestScheduler_Close(t *testing.T) {
 
 	// ticker should have stopped (best-effort check)
 	select {
-	case _, ok := <-s.ticker.C:
+	case _, ok := <-s.ticker.C():
 		if ok {
 			t.Fatal("expected ticker channel to be closed after Stop")
 		}
