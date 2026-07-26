@@ -94,6 +94,18 @@ func (s *Scheduler[T]) runCycle(t time.Time) {
 	}
 }
 
+// Add stores a task T to be executed at (or after) the given time.
+// It returns a unique ID that can be used with Remove to cancel the task.
+func (s *Scheduler[T]) Add(when time.Time, task T) (int, error) {
+	return s.storage.Add(when, task)
+}
+
+// Remove cancels a previously added task by ID, returning the original
+// value. An error is returned if the ID does not exist.
+func (s *Scheduler[T]) Remove(id int) (T, error) {
+	return s.storage.Remove(id)
+}
+
 func (s *Scheduler[T]) Close() {
 	s.ticker.Stop()
 	s.storage.Close()
