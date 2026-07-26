@@ -25,7 +25,7 @@ const defaultTickCycle = time.Second
 type Option[T any] func(*Scheduler[T])
 
 func defaultTickerCycle[T any](s *Scheduler[T]) {
-	s.ticker = ticker.NewTimeTicker(time.Second)
+	s.ticker = ticker.NewTimeTicker(defaultTickCycle)
 }
 
 func defaultStorage[T any](s *Scheduler[T]) {

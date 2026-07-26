@@ -94,10 +94,14 @@ linters:
           allow:
             - $gostd
             - github.com/fmotalleb/go-scheduler
-            - github.com/fmotalleb/go-scheduler/*
+            - github.com/fmotalleb/go-scheduler/storage
+            - github.com/fmotalleb/go-scheduler/ticker
+            - github.com/fmotalleb/go-scheduler/worker
 
   exclusions:
     generated: lax
+    paths:
+      - example
     presets:
       - comments
       - common-false-positives
