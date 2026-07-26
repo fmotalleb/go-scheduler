@@ -95,7 +95,7 @@ func (s *Scheduler[T]) runCycle(t time.Time) {
 }
 
 func (s *Scheduler[T]) Close() {
-	s.worker.Close()
-	s.storage.Close()
 	s.ticker.Stop()
+	s.storage.Close()
+	s.worker.Close()
 }
