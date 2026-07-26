@@ -1,0 +1,136 @@
+# golangci-lint configuration for the scheduler package.
+# Schema: golangci-lint v2 (verify with: golangci-lint config verify).
+version: "2"
+
+run:
+  timeout: 3m
+  relative-path-mode: gomod
+
+linters:
+  # The v2 default set (errcheck, govet, ineffassign, staticcheck, unused)
+  # stays enabled; everything in `enable` is added on top of it.
+  default: standard
+  enable:
+    # --- bug classes -------------------------------------------------
+    - asciicheck        # non-ASCII identifiers (calendar runes stay legal: they're literals)
+    - bidichk           # bidi control characters in source
+    - bodyclose         # unclosed HTTP response bodies
+    - dupword           # accidentally duplicated words in comments
+    - forcetypeassert   # single-return type assertions (panic risk)
+    - gosec             # security checks
+    - makezero          # appends to slices created with non-zero length
+    - nakedret          # naked returns in long functions
+    - nilnil            # return (nil, nil)
+    - predeclared       # shadowing predeclared identifiers (min, cap, ...)
+    - unconvert         # redundant type conversions
+    - unparam           # parameters that always receive the same value
+    - usestdlibvars     # magic values where a stdlib symbol exists
+    - wastedassign      # assignments overwritten before use
+    # --- style / hygiene ---------------------------------------------
+    - goconst           # string literals repeated unnecessarily
+    - gocritic          # opinionated-but-sound static checks
+    - gocyclo           # cyclomatic complexity gate
+    - godot             # declaration comments must end in a period
+    - misspell          # common misspellings
+    - nolintlint        # keeps nolint directives honest
+    - perfsprint        # slow fmt.Sprintf usage where faster alternatives exist
+    - revive            # golint successor
+    - whitespace        # leading/trailing blank lines in blocks
+    # Note: staticcheck (on by default) subsumes gosimple/stylecheck in v2;
+    # its check selection is tuned in settings below.
+    # --- architecture ------------------------------------------------
+    - depguard          # enforce the package's zero-dependency promise
+    - funlen            # function length gate
+  disable:
+    # Deliberately kept off for this package:
+    # - mnd:        calendar conversion is full of meaningful fields/period
+    #               lengths (31, 33, 1461, ...) that are *not* magic numbers
+    # - gochecknoglobals: small lookup tables as package vars are intentional
+    # - copyloopvar: only meaningful at language version ≥1.22 while
+    #               go.mod deliberately targets Go 1.21
+    # - testpackage / varnamelen / wsl / lll / exhaustruct: subjective noise
+    - mnd
+    - gochecknoglobals
+    - copyloopvar
+    - testpackage
+    - varnamelen
+    - wsl
+    - lll
+    - exhaustruct
+
+  settings:
+    # SA* (correctness), S* (simplification) and ST* (style) all apply;
+    # QF* quickfix suggestions are turned off: they fight deliberate
+    # stdlib-port style in format.go without finding real problems.
+    staticcheck:
+      checks:
+        - all
+        - -QF*
+    gocyclo:
+      min-complexity: 20
+    funlen:
+      lines: 120
+      statements: 80
+    goconst:
+      min-occurrences: 3
+      ignore-tests: true
+    godot:
+      scope: declarations
+      period: true
+      capital: false
+    nolintlint:
+      require-explanation: true
+      require-specific: false
+      allow-unused: false
+    revive:
+      confidence: 0.8
+    depguard:
+      rules:
+        # The whole point of this module: only the Go standard library may
+        # ever be imported (plus the module itself in tests/examples).
+        stdlib-only:
+          files:
+            - $all
+          allow:
+            - $gostd
+            - github.com/fmotalleb/go-scheduler
+            - github.com/google/btree
+
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - std-error-handling
+    rules:
+      # format.go is an intentional, close port of the Go standard library's
+      # src/time/format.go. Its correctness comes from mirroring upstream's
+      # long table-driven switches; metric linters only read that as
+      # "complex", so complexity gates don't apply to that file.
+      - path: format\.go
+        linters:
+          - gocyclo
+          - funlen
+      # Test files legitimately repeat fixtures and keep tables readable.
+      - path: _test\.go
+        linters:
+          - gosec
+          - goconst
+          - funlen
+          - gocyclo
+
+formatters:
+  enable:
+    - gofmt
+    - gofumpt
+    - goimports
+  settings:
+    # gofumpt must know the module path, like goimports does with
+    # local-prefixes: otherwise, during `golangci-lint run`, gofumpt wants
+    # the local import "scheduler" merged into the stdlib group while
+    # goimports wants it separated, and the file is flagged forever.
+    gofumpt:
+      module-path: scheduler
+    goimports:
+      local-prefixes:
+        - scheduler
