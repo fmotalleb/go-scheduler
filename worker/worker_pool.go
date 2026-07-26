@@ -14,7 +14,7 @@ type WorkerPool[T any] struct {
 }
 
 func NewWorkerPool[T any](ctx context.Context, handler Handler[T], workers, queueSize int) *WorkerPool[T] {
-	ctx, cancel := context.WithCancel(ctx)
+	ctx, cancel := context.WithCancel(ctx) //nolint:gosec // cancel is stored and called during shutdown
 
 	p := &WorkerPool[T]{
 		ctx:    ctx,

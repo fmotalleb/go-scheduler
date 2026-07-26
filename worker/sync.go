@@ -9,7 +9,7 @@ type Sync[T any] struct {
 }
 
 func NewSync[T any](ctx context.Context, handler Handler[T]) *Sync[T] {
-	ctx, cancel := context.WithCancel(ctx)
+	ctx, cancel := context.WithCancel(ctx) //nolint:gosec // cancel is stored and called during shutdown
 	return &Sync[T]{
 		ctx:     ctx,
 		handler: handler,
