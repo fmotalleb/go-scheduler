@@ -13,7 +13,7 @@ back-ends and execution workers.
 ## Features
 
 - **Generic** — works with any task type (`Scheduler[T]`).
-- **Pluggable storage** — swap in-memory storage for Redis, Postgres, etc. by
+- **Pluggable storage** — swap in-memory storage for Redis, Postgres, SQLite, etc. by
   implementing the `Storage[T]` interface.
 - **Pluggable workers** — synchronous execution, goroutine pool, or your own
   `Worker[T]` implementation.
@@ -22,8 +22,7 @@ back-ends and execution workers.
   and reports them via the configured logger.
 - **Context-aware** — lifecycle is tied to a `context.Context`; cancellation
   shuts everything down cleanly.
-- **Zero external dependencies in user code** — only `google/btree` is used
-  internally by the included memory storage.
+- **Zero external dependencies in user code**
 
 ---
 
