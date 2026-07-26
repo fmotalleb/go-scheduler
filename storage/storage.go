@@ -28,7 +28,11 @@ type item[T any] struct {
 }
 
 func (i *item[T]) Less(other btree.Item) bool {
-	return i.key.Less(other.(*item[T]).key)
+	i, ok := other.(*item[T])
+	if !ok {
+		return false
+	}
+	return i.key.Less(i.key)
 }
 
 type MemoryStorage[T any] struct {
@@ -93,7 +97,10 @@ func (s *MemoryStorage[T]) PopBefore(t time.Time) ([]T, error) {
 	)
 
 	s.tree.AscendLessThan(limit, func(i btree.Item) bool {
-		it := i.(*item[T])
+		it, ok := i.(*item[T])
+		if !ok {
+			return false
+		}
 		items = append(items, it)
 		out = append(out, it.value)
 		return true
