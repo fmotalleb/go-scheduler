@@ -204,19 +204,15 @@ s := scheduler.New(ctx, nil,
 
 ### Storage
 
-**`MemoryStorage[T]`** — an in-memory store backed by a B-tree from
+**`storage.MemoryStorage[T]`** — an in-memory store backed by a B-tree from
 [google/btree](https://github.com/google/btree). Tasks are ordered by their
 scheduled time (and insertion order for identical timestamps). Data is lost
 on process exit.
 
-> **Note:** The storage subpackage (`github.com/fmotalleb/go-scheduler/storage`)
-> declares its package name as `scheduler` (same as the root package). Import
-> it with an alias:
-
 ```go
-import st "github.com/fmotalleb/go-scheduler/storage"
+import "github.com/fmotalleb/go-scheduler/storage"
 
-store := st.NewMemoryStorage[MyType](8)   // degree ≥ 2; defaults to 8
+store := storage.NewMemoryStorage[MyType](8)   // degree ≥ 2; defaults to 8
 
 s := scheduler.New(ctx, myWorker,
     scheduler.WithStorage(store),
@@ -281,7 +277,7 @@ for i := 0; i < 100; i++ {
 Implement `Storage[T]` with your database of choice:
 
 ```go
-import st "github.com/fmotalleb/go-scheduler/storage"
+import "github.com/fmotalleb/go-scheduler/storage"
 
 type PostgresStorage[T any] struct {
     db *sql.DB

@@ -16,6 +16,12 @@ type LogFn func(error)
 // context-aware functions.
 type Callback = func(context.Context)
 
+// Scheduler is a generic task scheduler that periodically checks a storage
+// backend for tasks whose time has elapsed and submits them to a worker for
+// processing.
+//
+// Create one via New or NewCallback; the scheduler starts in a background
+// goroutine immediately. Use context cancellation to shut it down.
 type Scheduler[T any] struct {
 	storage Storage[T]
 	ticker  *time.Ticker
@@ -26,6 +32,14 @@ type Scheduler[T any] struct {
 // defaultLogFn silently discards all errors.
 func defaultLogFn(error) {}
 
+// New creates and starts a Scheduler[T] in a background goroutine.
+//
+// The worker parameter is the default Worker[T] used to process tasks. It
+// can be overridden by passing WithWorker or WithWorkerPool as an option.
+//
+// The scheduler calls Storage.PopBefore at each tick to find due tasks and
+// hands them to the worker via Worker.Submit. The scheduler stops when ctx
+// is cancelled.
 func New[T any](ctx context.Context, worker Worker[T], opts ...Option[T]) *Scheduler[T] {
 	sc := new(Scheduler[T])
 	sc.worker = worker
@@ -39,10 +53,23 @@ func New[T any](ctx context.Context, worker Worker[T], opts ...Option[T]) *Sched
 	if sc.ticker == nil {
 		defaultTickerCycle(sc)
 	}
-	go sc.Start(ctx)
+	go sc.start(ctx)
 	return sc
 }
 
+// NewCallback is a convenience constructor for schedulers that execute
+// simple context-aware functions (Callback).
+//
+// Unlike New, NewCallback does not require an explicit Worker — if none
+// is provided via WithWorker or WithWorkerPool, a default synchronous
+// worker is created internally.
+//
+//	s := scheduler.NewCallback(ctx,
+//	    scheduler.WithTickerCycle(250*time.Millisecond),
+//	)
+//	s.Add(time.Now().Add(5*time.Second), func(ctx context.Context) {
+//	    fmt.Println("Hello!")
+//	})
 func NewCallback(ctx context.Context, opts ...Option[Callback]) *Scheduler[Callback] {
 	sc := new(Scheduler[Callback])
 	sc.logFn = defaultLogFn
@@ -58,11 +85,19 @@ func NewCallback(ctx context.Context, opts ...Option[Callback]) *Scheduler[Callb
 	if sc.worker == nil {
 		defaultWorker(ctx)(sc)
 	}
-	go sc.Start(ctx)
+	go sc.start(ctx)
 	return sc
 }
 
-func (s *Scheduler[T]) Start(ctx context.Context) {
+// start begins the scheduler's main loop.
+//
+// It listens for tick events from the internal ticker and, on each tick,
+// calls runCycle to pop and process all due tasks. The loop exits when ctx
+// is cancelled.
+//
+// start is called automatically by New and NewCallback and normally does
+// not need to be invoked directly.
+func (s *Scheduler[T]) start(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
@@ -106,6 +141,9 @@ func (s *Scheduler[T]) Remove(id int) (T, error) {
 	return s.storage.Remove(id)
 }
 
+// Close shuts down the scheduler by stopping the ticker and closing both
+// the storage backend and the worker. After Close returns the scheduler
+// can no longer be used.
 func (s *Scheduler[T]) Close() {
 	s.ticker.Stop()
 	s.storage.Close()

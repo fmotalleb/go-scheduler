@@ -12,8 +12,7 @@
 //   - Worker[T]   — processes items submitted by the scheduler.
 //
 // A ready-to-use in-memory storage is provided in the subpackage at
-// github.com/fmotalleb/go-scheduler/storage (note: its package name is
-// also "scheduler", so import it with an alias). Two worker implementations
+// github.com/fmotalleb/go-scheduler/storage, and two worker implementations
 // live in the subpackage github.com/fmotalleb/go-scheduler/worker:
 //
 //   - worker.Sync — runs each task synchronously, in the scheduler's own
@@ -70,11 +69,9 @@
 // # Sub-packages
 //
 //   - github.com/fmotalleb/go-scheduler/storage — MemoryStorage backed by a
-//     B-tree. Import with an alias because its package name is also
-//     "scheduler". Example:
+//     B-tree.
 //
-//     import st "github.com/fmotalleb/go-scheduler/storage"
-//     store := st.NewMemoryStorage[MyType](8)
+//     store := storage.NewMemoryStorage[MyType](8)
 //
 //   - github.com/fmotalleb/go-scheduler/worker — Sync and WorkerPool
 //     implementations, plus the Handler[T] type alias.

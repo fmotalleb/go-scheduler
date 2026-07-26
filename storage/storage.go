@@ -1,4 +1,4 @@
-package scheduler
+package storage
 
 import (
 	"errors"
@@ -35,12 +35,21 @@ func (i *item[T]) Less(other btree.Item) bool {
 	return i.key.Less(i.key)
 }
 
+// MemoryStorage is an in-memory implementation of Storage[T] backed by a
+// B-tree (google/btree). Tasks are ordered by their scheduled time and,
+// for identical timestamps, by insertion order.
+//
+// Data is lost when the process exits. For production use with persistence
+// requirements, implement the Storage[T] interface against a database.
 type MemoryStorage[T any] struct {
 	tree   *btree.BTree
 	lookup map[int]*item[T]
 	nextID int
 }
 
+// NewMemoryStorage creates an in-memory task storage with the given B-tree
+// degree. If degree is less than 2, it defaults to 8, which is a sensible
+// value for most workloads.
 func NewMemoryStorage[T any](degree int) *MemoryStorage[T] {
 	if degree < 2 {
 		degree = 8
@@ -52,6 +61,9 @@ func NewMemoryStorage[T any](degree int) *MemoryStorage[T] {
 	}
 }
 
+// Add stores a task to be executed at (or after) the given time. It
+// assigns an auto-incrementing ID and returns it. The ID can be used with
+// Remove to cancel the task.
 func (s *MemoryStorage[T]) Add(t time.Time, v T) (int, error) {
 	s.nextID++
 
@@ -69,6 +81,8 @@ func (s *MemoryStorage[T]) Add(t time.Time, v T) (int, error) {
 	return it.key.ID, nil
 }
 
+// Remove deletes a previously stored task by ID, returning the original
+// value. An error is returned if the ID does not exist.
 func (s *MemoryStorage[T]) Remove(id int) (T, error) {
 	var zero T
 
@@ -83,6 +97,9 @@ func (s *MemoryStorage[T]) Remove(id int) (T, error) {
 	return it.value, nil
 }
 
+// PopBefore retrieves and removes all tasks scheduled strictly before
+// the given time. Tasks are returned in insertion order for identical
+// timestamps.
 func (s *MemoryStorage[T]) PopBefore(t time.Time) ([]T, error) {
 	limit := &item[T]{
 		key: storageKey{
@@ -114,6 +131,8 @@ func (s *MemoryStorage[T]) PopBefore(t time.Time) ([]T, error) {
 	return out, nil
 }
 
+// Close releases all resources held by the storage, clearing the lookup
+// map and the B-tree.
 func (s *MemoryStorage[T]) Close() {
 	for k := range s.lookup {
 		delete(s.lookup, k)
