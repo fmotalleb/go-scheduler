@@ -419,8 +419,8 @@ func TestScheduler_integration(t *testing.T) {
 	defer s.Close()
 
 	now := time.Now()
-	s.Add(now.Add(-time.Hour), 1)   // past => immediate
-	s.Add(now.Add(-time.Minute), 2) // past => immediate
+	_, _ = s.Add(now.Add(-time.Hour), 1)   // past => immediate
+	_, _ = s.Add(now.Add(-time.Minute), 2) // past => immediate
 
 	time.Sleep(100 * time.Millisecond)
 
@@ -446,7 +446,7 @@ func TestScheduler_integrationWithCallback(t *testing.T) {
 	defer s.Close()
 
 	now := time.Now()
-	s.Add(now.Add(-time.Hour), func(_ context.Context) {
+	_, _ = s.Add(now.Add(-time.Hour), func(_ context.Context) {
 		mu.Lock()
 		results = append(results, "done")
 		mu.Unlock()

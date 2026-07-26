@@ -77,7 +77,7 @@ func TestSyncClose_cancelsContext(t *testing.T) {
 	})
 
 	w.Close()
-	w.Submit(0) // handler gets cancelled context
+	_ = w.Submit(0) // handler gets cancelled context
 
 	select {
 	case <-done:
