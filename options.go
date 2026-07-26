@@ -55,3 +55,12 @@ func WithWorkerPool[T any](ctx context.Context, h worker.Handler[T], workers, qu
 		s.worker = worker.NewWorkerPool[T](ctx, h, workers, queueSize)
 	}
 }
+
+// WithLogger sets a custom error logger on the scheduler.
+// The provided LogFn will be called whenever an error occurs in Start or
+// runCycle. Pass nil to restore the default no-op behaviour.
+func WithLogger[T any](fn LogFn) Option[T] {
+	return func(s *Scheduler[T]) {
+		s.logFn = fn
+	}
+}

@@ -2,20 +2,34 @@ package scheduler
 
 import (
 	"context"
+	"fmt"
 	"time"
 )
 
+// LogFn is a pluggable function for handling errors that occur during
+// scheduler operation (Start and runCycle). By default, errors are
+// silently ignored. Provide a custom LogFn via WithLogger to log,
+// monitor, or otherwise react to scheduler errors.
+type LogFn func(error)
+
+// Callback is a convenience alias for scheduler tasks that are simple
+// context-aware functions.
 type Callback = func(context.Context)
 
 type Scheduler[T any] struct {
 	storage Storage[T]
 	ticker  *time.Ticker
 	worker  Worker[T]
+	logFn   LogFn
 }
 
-func New[T any](worker Worker[T], opts ...Option[T]) *Scheduler[T] {
+// defaultLogFn silently discards all errors.
+func defaultLogFn(error) {}
+
+func New[T any](ctx context.Context, worker Worker[T], opts ...Option[T]) *Scheduler[T] {
 	sc := new(Scheduler[T])
 	sc.worker = worker
+	sc.logFn = defaultLogFn
 	for _, o := range opts {
 		o(sc)
 	}
@@ -25,11 +39,13 @@ func New[T any](worker Worker[T], opts ...Option[T]) *Scheduler[T] {
 	if sc.ticker == nil {
 		defaultTickerCycle(sc)
 	}
+	go sc.Start(ctx)
 	return sc
 }
 
 func NewCallback(ctx context.Context, opts ...Option[Callback]) *Scheduler[Callback] {
 	sc := new(Scheduler[Callback])
+	sc.logFn = defaultLogFn
 	for _, o := range opts {
 		o(sc)
 	}
@@ -42,6 +58,7 @@ func NewCallback(ctx context.Context, opts ...Option[Callback]) *Scheduler[Callb
 	if sc.worker == nil {
 		defaultWorker(ctx)(sc)
 	}
+	go sc.Start(ctx)
 	return sc
 }
 
@@ -49,7 +66,6 @@ func (s *Scheduler[T]) Start(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-
 			return
 		case tick := <-s.ticker.C:
 			s.runCycle(tick)
@@ -58,16 +74,28 @@ func (s *Scheduler[T]) Start(ctx context.Context) {
 }
 
 func (s *Scheduler[T]) runCycle(t time.Time) {
+	defer func() {
+		if r := recover(); r != nil {
+			if err, ok := r.(error); ok {
+				s.logFn(fmt.Errorf("runCycle panicked: %w", err))
+			} else {
+				s.logFn(fmt.Errorf("runCycle panicked: %v", r))
+			}
+		}
+	}()
 	items, err := s.storage.PopBefore(t)
 	if err != nil {
-		// ?
+		s.logFn(fmt.Errorf("failed to pop items before %v: %w", t, err))
 	}
 	for _, i := range items {
-		s.worker.Submit(i)
+		if err := s.worker.Submit(i); err != nil {
+			s.logFn(fmt.Errorf("failed to submit item %v: %w", i, err))
+		}
 	}
 }
 
 func (s *Scheduler[T]) Close() {
 	s.worker.Close()
 	s.storage.Close()
+	s.ticker.Stop()
 }
