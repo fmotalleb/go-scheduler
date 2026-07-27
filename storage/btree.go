@@ -260,7 +260,7 @@ func (s *BTree[T]) insertNonFull(n *node[T], e entry[T]) *bucket[T] {
 	}
 
 	if n.leaf {
-		b := s.bucketPool.Get().(*bucket[T])
+		b := s.bucketPool.Get().(*bucket[T]) //nolint:forcetypeassert // private field, its always null or bucket[T]
 		b.when = e.when
 		b.entries = append(b.entries[:0], e)
 		n.buckets = append(n.buckets, nil)
