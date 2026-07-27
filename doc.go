@@ -71,8 +71,6 @@
 //   - github.com/fmotalleb/go-scheduler/storage — MemoryStorage backed by a
 //     B-tree.
 //
-//     store := storage.NewMemoryStorage[MyType](8)
-//
 //   - github.com/fmotalleb/go-scheduler/worker — Sync and WorkerPool
 //     implementations, plus the Handler[T] type alias.
 package scheduler

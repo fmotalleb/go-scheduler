@@ -167,7 +167,7 @@ func (s *Scheduler[T]) Remove(id int) (T, error)
 ### Options
 
 | Option | Description | Default |
-|--------|-------------|---------|
+| -------- | ------------- | --------- |
 | `WithTickerCycle(d time.Duration)` | How often to check for due tasks | 1 second |
 | `WithStorage(s Storage[T])` | Custom storage backend | `MemoryStorage(degree=8)` |
 | `WithWorker(w Worker[T])` | Custom worker | — |
@@ -203,22 +203,28 @@ s := scheduler.New(ctx, nil,
 
 ### Storage
 
-**`storage.MemoryStorage[T]`** — an in-memory store backed by a B-tree from
-[google/btree](https://github.com/google/btree). Tasks are ordered by their
-scheduled time (and insertion order for identical timestamps). Data is lost
-on process exit.
+Two in-memory storage back-ends are provided in the `storage` subpackage:
+
+- **`storage.BTree[T]`**
+    Custom bucket-optimized B-tree. Faster for scheduler workloads and
+    allocation-efficient when timestamps collide. **Default when no storage is specified.**
 
 ```go
-import "github.com/fmotalleb/go-scheduler/storage"
+import (
+    "github.com/fmotalleb/go-scheduler"
+    "github.com/fmotalleb/go-scheduler/storage"
+)
 
-store := storage.NewMemoryStorage[MyType](8)   // degree ≥ 2; defaults to 8
+// Custom B-tree implementation (default, recommended).
+store := storage.NewBTreeStorageWithDegree[int](8) // degree ≥ 2; defaults to 8
 
 s := scheduler.New(ctx, myWorker,
     scheduler.WithStorage(store),
 )
 ```
 
-To persist tasks across restarts, implement the `Storage[T]` interface:
+To persist tasks across restarts, implement the `scheduler.Storage[T]` interface
+(defined in the root `scheduler` package):
 
 ```go
 type Storage[T any] interface {

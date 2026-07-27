@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-func mustStorage(t *testing.T, degree int) *BTreeStorage[string] {
+func mustStorage(t *testing.T, degree int) *BTree[string] {
 	t.Helper()
 	return NewBTreeStorageWithDegree[string](degree)
 }
