@@ -30,9 +30,13 @@ type entry[T any] struct {
 // bucket groups every entry scheduled for exactly the same time.Time. This
 // is what the B-tree actually stores one-per-key, since multiple callers
 // may legitimately schedule work for an identical instant.
+//
+// Entries are stored by value (not pointer) so that the per-entry heap
+// allocation in Add is eliminated. The entry struct is allocated inline
+// within the bucket's backing array.
 type bucket[T any] struct {
 	when    time.Time
-	entries []*entry[T]
+	entries []entry[T]
 }
 
 type node[T any] struct {
@@ -71,8 +75,13 @@ func NewBTreeStorageWithDegree[T any](degree int) *BTreeStorage[T] {
 	if degree < 2 {
 		degree = defaultDegree
 	}
+	// Pre-allocate the root's buckets slice to max capacity (2*degree-1)
+	// so that appends don't reallocate until the node is truly full.
 	return &BTreeStorage[T]{
-		root:   &node[T]{leaf: true},
+		root: &node[T]{
+			leaf:     true,
+			buckets:  make([]*bucket[T], 0, 2*degree-1),
+		},
 		degree: degree,
 		nextID: 1,
 		index:  make(map[int]*bucket[T]),
@@ -115,11 +124,15 @@ func (s *BTreeStorage[T]) Add(when time.Time, value T) (int, error) {
 
 	id := s.nextID
 	s.nextID++
-	e := &entry[T]{id: id, when: when, value: value}
+	e := entry[T]{id: id, when: when, value: value} // value type — no per-entry heap alloc
 
 	t := s.degree
 	if len(s.root.buckets) == 2*t-1 {
-		newRoot := &node[T]{leaf: false, children: []*node[T]{s.root}}
+		newRoot := &node[T]{
+			leaf:     false,
+			buckets:  make([]*bucket[T], 0, 2*t-1),
+			children: []*node[T]{s.root},
+		}
 		s.splitChild(newRoot, 0)
 		s.root = newRoot
 	}
@@ -146,9 +159,9 @@ func (s *BTreeStorage[T]) Remove(id int) (T, error) {
 	}
 
 	value := zero
-	for i, e := range b.entries {
-		if e.id == id {
-			value = e.value
+	for i := range b.entries {
+		if b.entries[i].id == id {
+			value = b.entries[i].value
 			b.entries = append(b.entries[:i], b.entries[i+1:]...)
 			break
 		}
@@ -182,7 +195,13 @@ func (s *BTreeStorage[T]) PopBefore(t time.Time) ([]T, error) {
 		return nil, nil
 	}
 
-	out := make([]T, 0, len(due))
+	// Pre-compute total entry count so out is allocated with the exact
+	// capacity and never needs to grow during the append loop.
+	total := 0
+	for _, b := range due {
+		total += len(b.entries)
+	}
+	out := make([]T, 0, total)
 	for _, b := range due {
 		for _, e := range b.entries {
 			out = append(out, e.value)
@@ -231,7 +250,7 @@ func collectBefore[T any](n *node[T], t time.Time, out *[]*bucket[T]) {
 // insertNonFull inserts e into the subtree rooted at n, which must not be
 // full, splitting full children as it descends. It returns the bucket that
 // now holds e (either newly created, or an existing one for the same time).
-func (s *BTreeStorage[T]) insertNonFull(n *node[T], e *entry[T]) *bucket[T] {
+func (s *BTreeStorage[T]) insertNonFull(n *node[T], e entry[T]) *bucket[T] {
 	i := sort.Search(len(n.buckets), func(i int) bool {
 		return !n.buckets[i].when.Before(e.when)
 	})
@@ -242,7 +261,7 @@ func (s *BTreeStorage[T]) insertNonFull(n *node[T], e *entry[T]) *bucket[T] {
 	}
 
 	if n.leaf {
-		b := &bucket[T]{when: e.when, entries: []*entry[T]{e}}
+		b := &bucket[T]{when: e.when, entries: []entry[T]{e}}
 		n.buckets = append(n.buckets, nil)
 		copy(n.buckets[i+1:], n.buckets[i:])
 		n.buckets[i] = b
@@ -270,7 +289,13 @@ func (s *BTreeStorage[T]) splitChild(parent *node[T], i int) {
 	child := parent.children[i]
 	mid := child.buckets[t-1]
 
-	right := &node[T]{leaf: child.leaf}
+	// Pre-allocate right node's slices to max capacity so that the
+	// bulk-appends below never trigger a second allocation.
+	right := &node[T]{
+		leaf:     child.leaf,
+		buckets:  make([]*bucket[T], 0, 2*t-1),
+		children: make([]*node[T], 0, 2*t),
+	}
 	right.buckets = append(right.buckets, child.buckets[t:]...)
 	if !child.leaf {
 		right.children = append(right.children, child.children[t:]...)
