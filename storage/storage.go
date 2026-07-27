@@ -53,13 +53,14 @@ type node[T any] struct {
 // Call Close when the storage is no longer needed; after that, Add,
 // Remove, and PopBefore all return ErrClosed.
 type BTreeStorage[T any] struct {
-	mu     sync.Mutex
-	root   *node[T]
-	degree int
-	nextID int
-	index  map[int]*bucket[T] // id -> bucket currently holding that id
-	size   int
-	closed bool
+	mu         sync.Mutex
+	root       *node[T]
+	degree     int
+	nextID     int
+	index      map[int]*bucket[T] // id -> bucket currently holding that id
+	size       int
+	closed     bool
+	bucketPool sync.Pool          // recycled empty *bucket[T] structs
 }
 
 // NewBTreeStorage creates a ready-to-use Storage[T] backed by a B-tree.
@@ -85,6 +86,9 @@ func NewBTreeStorageWithDegree[T any](degree int) *BTreeStorage[T] {
 		degree: degree,
 		nextID: 1,
 		index:  make(map[int]*bucket[T]),
+		bucketPool: sync.Pool{
+			New: func() any { return &bucket[T]{} },
+		},
 	}
 }
 
@@ -172,6 +176,7 @@ func (s *BTreeStorage[T]) Remove(id int) (T, error) {
 	if len(b.entries) == 0 {
 		s.remove(s.root, b.when)
 		s.shrinkRoot()
+		s.bucketPool.Put(b) // recycle the empty bucket struct
 	}
 
 	return value, nil
@@ -215,6 +220,8 @@ func (s *BTreeStorage[T]) PopBefore(t time.Time) ([]T, error) {
 		// it must be reassessed before each subsequent one.
 		s.shrinkRoot()
 		s.remove(s.root, b.when)
+		b.entries = b.entries[:0] // retain backing array capacity for reuse
+		s.bucketPool.Put(b)       // recycle the empty bucket struct
 	}
 	s.shrinkRoot()
 
@@ -261,7 +268,9 @@ func (s *BTreeStorage[T]) insertNonFull(n *node[T], e entry[T]) *bucket[T] {
 	}
 
 	if n.leaf {
-		b := &bucket[T]{when: e.when, entries: []entry[T]{e}}
+		b := s.bucketPool.Get().(*bucket[T])
+		b.when = e.when
+		b.entries = append(b.entries[:0], e)
 		n.buckets = append(n.buckets, nil)
 		copy(n.buckets[i+1:], n.buckets[i:])
 		n.buckets[i] = b
